@@ -31,24 +31,20 @@ use core::byte_array;
 //     println!("Hellobar");
 // }
 
-
-fn test() {
-    let data: ByteArray = "4104faaf6ee17000225046f18fec61c6b9a0cb516bac546054c4f22fd7e6974c27f5519a9be203eacd01e842e8705e094cffc1e229ace53f8556acd9b95e1f4e30ceac";
-    //let ALLOWED_OPCODE: Array<u8> = array![126, 129];
-    let mut convertedData: ByteArray = "";
-
+fn string_to_byte_array(data: ByteArray) -> ByteArray {
+    let mut rvalue: ByteArray = "";
     let mut i: u32 = 0;
 
     while i != data.len() {
         let mut value = 0;
-        let mut dix = 0;
+        let mut ten = 0;
         let mut unit = 0;
         if ( data[i] >= 48 && data[i] <= 58) {
-            dix = (data[i] - 48 )* 16;
+            ten = (data[i] - 48 )* 16;
         } else if ( data[i] >= 97 && data[i] <= 102) {
-            dix = 160 + (data[i] - 97 )* 16;
+            ten = 160 + (data[i] - 97 )* 16;
         } else if ( data[i] >= 65 && data[i] <= 70) {
-            dix = 160 + (data[i] - 65 )* 16;
+            ten = 160 + (data[i] - 65 )* 16;
         } else {
             panic!("wrong character");
         }
@@ -64,27 +60,32 @@ fn test() {
             panic!("wrong character unit");
         }
 
-        value = dix + unit;
-        convertedData.append_byte(value);
+        value = ten + unit;
+        rvalue.append_byte(value);
         i+=2;
     };
+    return rvalue;
+}
 
-    let mut ScriptElementArray:Array<ScriptElement> = ArrayTrait::<ScriptElement>::new();
-    i = 0;
+fn byte_array_to_script_element_array(data: ByteArray) -> Array<ScriptElement> {
+    let mut i = 0;
+    let mut rvalue:Array<ScriptElement> = ArrayTrait::<ScriptElement>::new();
     //optimize Byte Array 
     let mut state: u32 = 0;
-    println!("{}", convertedData.len());
-    while i != convertedData.len(){
+    println!("{}", data.len());
+    let mut temp_value: ByteArray = "";
+    let mut temp_state: u32 = 0;
+    let mut pushdata_size: Array<u8> = ArrayTrait::new();
+    while i != data.len(){
         print!("i: {} ", i);
-        let mut temp_state: u32 = 0;
-        let mut pushdata_size: Array<u8> = ArrayTrait::new();
-        let mut temp_opcode: u8 = convertedData.at(i).unwrap().into();
-        let mut temp_value: ByteArray = "";
+        
+        let mut temp_opcode: u8 = data.at(i).unwrap().into();
+        
 
         print!("value: {} ", temp_opcode);
         if ( temp_opcode > 0 && temp_opcode < 187 ) && state == 0 { 
             let mut element_opcode: Opcode = temp_opcode.try_into().unwrap();
-            ScriptElementArray.append(ScriptElement::Opcode(element_opcode));
+            rvalue.append(ScriptElement::Opcode(element_opcode));
         if temp_opcode == 0 || temp_opcode > 80 {
             
         } else {
@@ -122,10 +123,10 @@ fn test() {
                 state = temp_state + 1;
                 pushdata_size = ArrayTrait::new();
             }
-            temp_value.append_byte(convertedData.at(i).unwrap());
+            temp_value.append_byte(data.at(i).unwrap());
             
             if state == 1 {
-                ScriptElementArray.append(ScriptElement::Value(temp_value));
+                rvalue.append(ScriptElement::Value(temp_value));
                 temp_value = "";
             }
             state -= 1;
@@ -153,7 +154,35 @@ fn test() {
             println!("");
     };
 
-
+    return rvalue;
+}
+fn test() {
+    let data: ByteArray = string_to_byte_array("4104faaf6ee17000225046f18fec61c6b9a0cb516bac546054c4f22fd7e6974c27f5519a9be203eacd01e842e8705e094cffc1e229ace53f8556acd9b95e1f4e30ceac");
+    //let ALLOWED_OPCODE: Array<u8> = array![126, 129];
+    let mut ScriptElementArray: Array<ScriptElement> = byte_array_to_script_element_array(data);
+    
+    println!("{}", ScriptElementArray.len());
+    while ScriptElementArray.len() != 0 {
+        match ScriptElementArray.pop_front() {
+            Option::Some(x) => {
+                match x {
+                    ScriptElement::Opcode(x) => {
+                        let mut number: u8 = x.into();
+                        println!("{}", number);
+                    },
+                    ScriptElement::Value(x) => {
+                        let mut iterator = 0;
+                        while iterator != x.len() {
+                            print!("{} ", x.at(iterator).unwrap());
+                            iterator += 1;
+                        };
+                        println!("");
+                    }
+                }
+            },
+            Option::None => {}
+        }
+    }
 
 }
 
