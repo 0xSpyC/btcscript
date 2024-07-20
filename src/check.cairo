@@ -4,167 +4,173 @@ use core::byte_array::ByteArrayTrait;
 use core::array::ArrayTrait;
 use core::traits::TryInto;
 use btcscript::preprocess::{Opcode, ScriptElement, get_disabled_opcode};
-use core::box::Box;
-use core::bytes_31;
 use core::byte_array;
 
-// #[derive(Drop)]
-// struct Foo{
-//     data : u32,
-// }
 
-// trait FooTrait{
-//     fn bar(ref self: Foo);
-//     fn baz(ref self: Foo);
-// }
+fn hex_to_dec(value: u8) -> Option<u8> {
+    if (value >= 48 && value <= 57) {
+        Option::Some(value - 48) // '0'..='9'
+    } else if (value >= 65 && value <= 70) {
+        Option::Some(value - 55) // 'A'..='F'
+    } else if (value >= 97 && value <= 102) {
+        Option::Some(value - 87) // 'a'..='f'
+    } else {
+        return Option::None;
+    }
+}
 
-// impl FooImpl of FooTrait{
-//     fn bar(ref self: Foo) {
-//         println!("Hellobar");
-//     }
-//     fn baz(ref self: Foo) {
-//         println!("Hellobaz");
-//     }
-// }
-
-// fn bar() {
-//     println!("Hellobar");
-// }
-
-fn string_to_byte_array(data: ByteArray) -> ByteArray {
+fn string_to_byte_array(data: ByteArray) -> Option<ByteArray> {
     let mut rvalue: ByteArray = "";
     let mut i: u32 = 0;
+    let mut invalid_character: bool = false;
 
     while i != data.len() {
-        let mut value = 0;
         let mut ten = 0;
         let mut unit = 0;
-        if ( data[i] >= 48 && data[i] <= 58) {
-            ten = (data[i] - 48 )* 16;
-        } else if ( data[i] >= 97 && data[i] <= 102) {
-            ten = 160 + (data[i] - 97 )* 16;
-        } else if ( data[i] >= 65 && data[i] <= 70) {
-            ten = 160 + (data[i] - 65 )* 16;
-        } else {
-            panic!("wrong character");
+
+        match hex_to_dec(data[i]) {
+            Option::Some(x) => {
+                ten = x;
+            },
+            Option::None => {
+                invalid_character = true;
+            },
+        }
+        match hex_to_dec(data[i + 1]) {
+            Option::Some(x) => {
+                unit = x;
+            },
+            Option::None => {
+                invalid_character = true;
+            },
         }
 
-        if ( data[i + 1] >= 48 && data[i + 1] <= 58) {
-            unit = data[i + 1] - 48;
-        } else if ( data[i + 1] >= 97 && data[i + 1] <= 102) {
-            unit = data[i + 1] - 87;
-        } else if ( data[i + 1] >= 65 && data[i + 1] <= 70) {
-            unit = data[i + 1] - 55;
-
-        } else {
-            panic!("wrong character unit");
-        }
-
-        value = ten + unit;
-        rvalue.append_byte(value);
+        rvalue.append_byte(ten * 16 + unit);
         i+=2;
     };
-    return rvalue;
+
+    if invalid_character{
+         return(Option::None);
+    }
+    Option::Some(rvalue)
 }
 
-fn byte_array_to_script_element_array(data: ByteArray) -> Array<ScriptElement> {
-    let mut i = 0;
-    let mut rvalue:Array<ScriptElement> = ArrayTrait::<ScriptElement>::new();
-    //optimize Byte Array 
-    let mut state: u32 = 0;
-    println!("{}", data.len());
-    let mut temp_value: ByteArray = "";
-    let mut temp_state: u32 = 0;
-    let mut pushdata_size: Array<u8> = ArrayTrait::new();
-    while i != data.len(){
-        print!("i: {} ", i);
-        
-        let mut temp_opcode: u8 = data.at(i).unwrap().into();
-        
+#[derive(Drop)]
+struct ScriptPreProcessor {
+    pub(crate) data: ByteArray,
+    pub(crate) index: usize,
+    pub(crate) state: u32,
+    pub(crate) temp_value: ByteArray,
+    pub(crate) temp_state: u32,
+    pub(crate) pushdata_size: Array<u8>,
+    pub(crate) read_data: bool,
+    pub(crate) script_elements: Array<ScriptElement>,
+    pub(crate) successfuly_processed: bool,
+}
 
-        print!("value: {} ", temp_opcode);
-        if ( temp_opcode > 0 && temp_opcode < 187 ) && state == 0 { 
-            let mut element_opcode: Opcode = temp_opcode.try_into().unwrap();
-            rvalue.append(ScriptElement::Opcode(element_opcode));
-        if temp_opcode == 0 || temp_opcode > 80 {
-            
-        } else {
-            state = temp_opcode.into();
+trait ScriptPreProcessorTrait {
+    fn new(data: ByteArray) -> ScriptPreProcessor;
 
-            print!("catched size: {} ", state);
+    fn process(ref self: ScriptPreProcessor) -> Option<Array<ScriptElement>>;
+
+    fn handle_opcode(ref self: ScriptPreProcessor, opcode: u8);
+
+    fn handle_value_size(ref self: ScriptPreProcessor, opcode: u8);
+
+    fn process_pushdata_size(ref self: ScriptPreProcessor) -> u32;
+
+    fn handle_value(ref self: ScriptPreProcessor);
+
+    fn display(ref self: ScriptPreProcessor);
+}
+
+impl ScriptPreProcessorImpl of ScriptPreProcessorTrait{
+    fn new(data: ByteArray) -> ScriptPreProcessor {
+        let mut data_preprocess: ByteArray = "";
+        if let Option::Some(x) = string_to_byte_array(data) {
+            data_preprocess = x;
         }
-        } else if state > 75 {
-            pushdata_size.append(temp_opcode);
-            state -= 1;
-
-        } else if state > 0 {
-            print!(" state: {}", state);
-            if state == 75 && pushdata_size.len() != 0 {
-                let mut i:u32 = 0;
-                while pushdata_size.len() != 0 {
-                    match pushdata_size.pop_front() {
-                        Option::Some(x) => {
-                            if i == 0 {
-                                temp_state += x.into();
-                            }
-                            else if i == 1 {
-                                temp_state += x.into() * 256;
-                            }
-                            else if i == 2 {
-                                temp_state += x.into() * 65536;
-                            }
-                            else if i == 3 {
-                                temp_state += x.into() * 16777216;
-                            }
-                        },
-                        Option::None => {},
-                    }
-                };
-                state = temp_state + 1;
-                pushdata_size = ArrayTrait::new();
-            }
-            temp_value.append_byte(data.at(i).unwrap());
-            
-            if state == 1 {
-                rvalue.append(ScriptElement::Value(temp_value));
-                temp_value = "";
-            }
-            state -= 1;
+        ScriptPreProcessor {
+            data: data_preprocess,
+            index: 0,
+            state: 0,
+            temp_value: "",
+            temp_state: 0,
+            pushdata_size: ArrayTrait::new(),
+            read_data: false,
+            script_elements: ArrayTrait::new(),
+            successfuly_processed: false,
         }
-            
+    }
 
-        //     let temp_allowed_opcode = ALLOWED_OPCODE.span();
+    fn process(ref self: ScriptPreProcessor) -> Option<Array<ScriptElement>> {
+        if self.data.len() == 0 {
+            return Option::None;
+        }
 
-        //     let mut opcode_result = 0;
+        while self.index < self.data.len() {
+            let opcode = self.data[self.index];
 
-        //     while temp_allowed_opcode.len() != 0 {
-        //         match temp_allowed_opcode.pop_front() {
-        //             Option::Some(x) => {
-        //                 opcode_result *= convertedData[i] - x;
-        //             },
-        //             Option::None => {},
-        //         }
-        //     }
-
-        //     if opcode_result != 0
-            
-
-        // }
-        i+=1;
-            println!("");
+            if (opcode > 0 && opcode < 187) && self.state == 0 {
+                self.handle_opcode(opcode);
+            } else if self.state > 75 && !self.read_data {
+                self.handle_value_size(opcode);
+            } else if self.state > 0 {
+                self.handle_value();
+            }
+        self.index += 1;
     };
 
-    return rvalue;
-}
-fn test() {
-    let data: ByteArray = string_to_byte_array("4104faaf6ee17000225046f18fec61c6b9a0cb516bac546054c4f22fd7e6974c27f5519a9be203eacd01e842e8705e094cffc1e229ace53f8556acd9b95e1f4e30ceac");
-    //let ALLOWED_OPCODE: Array<u8> = array![126, 129];
-    let mut ScriptElementArray: Array<ScriptElement> = byte_array_to_script_element_array(data);
-    
-    println!("{}", ScriptElementArray.len());
-    while ScriptElementArray.len() != 0 {
-        match ScriptElementArray.pop_front() {
-            Option::Some(x) => {
+        Option::Some(self.script_elements.clone())
+    }
+
+    fn handle_opcode(ref self: ScriptPreProcessor, opcode: u8) {
+        let element_opcode: Opcode = opcode.try_into().unwrap();
+
+        self.script_elements.append(ScriptElement::Opcode(element_opcode));
+        if opcode > 0 && opcode <= 80 {
+            self.state = opcode.into();
+        }
+    }
+
+    fn handle_value_size(ref self: ScriptPreProcessor, opcode: u8) {
+                self.pushdata_size.append(opcode);
+                self.state -= 1;
+                if self.state == 75 {
+                    self.read_data = true;
+                }
+    }
+
+    fn process_pushdata_size(ref self: ScriptPreProcessor) -> u32 {
+        let mut result = 0;
+        let mut multiplier = 1;
+        while let Option::Some(x) = self.pushdata_size.pop_front() {
+            result += x.into() * multiplier;
+            multiplier *= 256;
+        };
+        result
+    }
+
+    fn handle_value(ref self: ScriptPreProcessor) {
+        if self.state == 75 && !self.pushdata_size.is_empty() {
+            self.temp_state = self.process_pushdata_size();
+            self.state = self.temp_state;
+        }
+        self.temp_value.append_byte(self.data[self.index]);
+        if self.state == 1 {
+            self.script_elements.append(ScriptElement::Value(self.temp_value.clone()));
+            self.temp_value = "";
+            self.read_data = false;
+        }
+        self.state -= 1;
+    }
+
+
+
+    fn display(ref self: ScriptPreProcessor) {
+
+    while self.script_elements.len() != 0 {
+        if let Option::Some(x) =  self.script_elements.pop_front() {
                 match x {
                     ScriptElement::Opcode(x) => {
                         let mut number: u8 = x.into();
@@ -179,11 +185,59 @@ fn test() {
                         println!("");
                     }
                 }
-            },
-            Option::None => {}
+            }
+        };
+    }
+}
+
+#[derive(Drop, Clone)]
+struct ScriptProcessor {
+    pub(crate) scriptElementArray: Array<ScriptElement>,
+    pub(crate) disabledOpcode: Span<Opcode>,
+    pub(crate) allowedOpcode: Array<Opcode>,
+}
+
+trait ScriptProcessorTrait {
+    fn new(data: Array<ScriptElement>) -> ScriptProcessor;
+
+    fn set_allowed_opcode(opcodes: Array<Opcode>);
+
+    fn check(ref self: ScriptProcessor) -> bool;
+
+    fn get_script_element_array(ref self: ScriptProcessor) -> Array<ScriptElement>;
+}
+
+impl ScriptProcessorImpl of ScriptProcessorTrait {
+
+    fn new(data: Array<ScriptElement>) -> ScriptProcessor {
+        ScriptProcessor {
+            scriptElementArray: data,
+            disabledOpcode: get_disabled_opcode(),
+            allowedOpcode: ArrayTrait::new(),
         }
     }
 
+
+    fn set_allowed_opcode(opcodes: Array<Opcode>){}
+
+    fn check(ref self: ScriptProcessor) -> bool {
+        false
+    }
+
+    fn get_script_element_array(ref self: ScriptProcessor) -> Array<ScriptElement> {
+        self.scriptElementArray.clone()
+    }
+}
+
+fn test() {
+    //let data: ByteArray = "4104faaf6ee17000225046f18fec61c6b9a0cb516bac546054c4f22fd7e6974c27f5519a9be203eacd01e842e8705e094cffc1e229ace53f8556acd9b95e1f4e30ceac";
+    let data: ByteArray = "a91481279aabd6ee711aee502ed4dcd00be1c6ff8edf87";
+    //let data: ByteArray = "4d0001aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    //let data: ByteArray = "48304502202e591bff9983f4c102406764e6d5a02d3f0d386016c1431a46d08a3f53facc84022100ee1a178685fbb5839188cc8d32e8c09092a51539bce6e1133be63059babdf8ac01410475bcdc7a50286e1359b73bac3406956476b3d4f0c1788a6b8962d7bb012bcc7477422c828425a07db480d3c249c784a933325af9201497e8c761036351d06155";
+    //let ALLOWED_OPCODE: Array<u8> = array![126, 129];
+    let mut processor: ScriptPreProcessor = ScriptPreProcessorTrait::new(data);
+    let mut _ScriptElementArray: Array<ScriptElement> = processor.process().unwrap();
+    processor.display();
 }
 
 
