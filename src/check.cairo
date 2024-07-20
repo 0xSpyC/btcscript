@@ -193,14 +193,16 @@ impl ScriptPreProcessorImpl of ScriptPreProcessorTrait{
 #[derive(Drop, Clone)]
 struct ScriptProcessor {
     pub(crate) scriptElementArray: Array<ScriptElement>,
-    pub(crate) disabledOpcode: Span<Opcode>,
-    pub(crate) allowedOpcode: Array<Opcode>,
+    pub(crate) disabledOpcodes: Span<Opcode>,
+	pub(crate) valid: bool,
 }
 
 trait ScriptProcessorTrait {
     fn new(data: Array<ScriptElement>) -> ScriptProcessor;
 
-    fn set_allowed_opcode(opcodes: Array<Opcode>);
+    fn set_allowed_opcode(ref self: ScriptProcessor,ref opcodes: Array<Opcode>);
+
+	fn set_disabled_opcode(ref self: ScriptProcessor,ref opcodes: Array<Opcode>);
 
     fn check(ref self: ScriptProcessor) -> bool;
 
@@ -212,16 +214,64 @@ impl ScriptProcessorImpl of ScriptProcessorTrait {
     fn new(data: Array<ScriptElement>) -> ScriptProcessor {
         ScriptProcessor {
             scriptElementArray: data,
-            disabledOpcode: get_disabled_opcode(),
-            allowedOpcode: ArrayTrait::new(),
+            disabledOpcodes: get_disabled_opcode(),
+			valid: false,
         }
     }
 
 
-    fn set_allowed_opcode(opcodes: Array<Opcode>){}
+    fn set_allowed_opcode(ref self: ScriptProcessor,ref opcodes: Array<Opcode>){
+		let mut newDisabledOpcodes: Array<Opcode> = ArrayTrait::new();
+
+		while opcodes.len() != 0 {
+			if let Option::Some(x) = opcodes.pop_front() {
+				while self.disabledOpcodes.len() != 0 {
+					if let Option::Some(y) = self.disabledOpcodes.pop_front() {
+						let a: u8 = x.into();
+						let b: u8 = (*y).into();
+						if a != b {
+							newDisabledOpcodes.append(y.clone());
+						}
+					}
+				};
+			}
+			self.disabledOpcodes = newDisabledOpcodes.span();
+		};
+	}
+
+	fn set_disabled_opcode(ref self: ScriptProcessor, ref opcodes: Array<Opcode>) {
+		
+	}
 
     fn check(ref self: ScriptProcessor) -> bool {
-        false
+		let mut script_len: u32 = self.scriptElementArray.len();
+		let mut validScript: bool = true;
+
+		while self.disabledOpcodes.len() != 0 {
+			let mut scriptIndex: u32 = script_len;
+			if let Option::Some(x) = self.disabledOpcodes.pop_front() {
+				while scriptIndex != 0 {
+					let mut scriptElement = self.scriptElementArray.at(scriptIndex - 1);
+					
+					match *scriptElement {
+						ScriptElement::Opcode(y) => {
+							let a: u8 = (*x).into();
+							let b: u8 = (y).into();
+							if a == b {
+								validScript = false;
+								break;
+							}
+						},
+						ScriptElement::Value(_) => {},
+					}
+					scriptIndex -= 1;
+				};
+				if !validScript {
+					break;
+				}
+			}
+		};
+        validScript
     }
 
     fn get_script_element_array(ref self: ScriptProcessor) -> Array<ScriptElement> {
@@ -239,6 +289,14 @@ fn test() {
     let mut _ScriptElementArray: Array<ScriptElement> = processor.process().unwrap();
     processor.display();
 }
+
+
+// main() {
+//
+// 	let script: ScriptProcessor = ScriptProccesor::load_script();
+// 	script.set_allowed_opcodes(array![Opcode::OP_CAT, Opcode::OP_LSHIFT]);
+// 	script.run();
+// }
 
 
 #[cfg(test)]

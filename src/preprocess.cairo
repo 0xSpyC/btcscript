@@ -1,7 +1,7 @@
 use core::option;
 
 
-#[derive(Drop, Clone)]
+#[derive(Drop, Copy)]
 pub enum Opcode {
     OP_0,
     OP_PUSHBYTES_1,
@@ -781,10 +781,13 @@ impl U32IntoOpcode of TryInto<u32, Opcode> {
         }
     }
 }
-#[derive(Drop, Clone)]
+#[derive(Drop)]
 pub enum ScriptElement {
     Opcode : Opcode,
     Value : ByteArray,
+}
+impl ScriptElementCopy of core::traits::Copy::<ScriptElement> {
+
 }
 
 pub fn get_disabled_opcode() -> Span<Opcode> {
