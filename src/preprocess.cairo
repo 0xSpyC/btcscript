@@ -1,4 +1,5 @@
 use core::option;
+use core::byte_array::ByteArrayTrait;
 
 
 #[derive(Drop, Copy)]
@@ -781,13 +782,10 @@ impl U32IntoOpcode of TryInto<u32, Opcode> {
         }
     }
 }
-#[derive(Drop)]
+#[derive(Drop, Clone, Copy)]
 pub enum ScriptElement {
     Opcode : Opcode,
     Value : ByteArray,
-}
-impl ScriptElementCopy of core::traits::Copy::<ScriptElement> {
-
 }
 
 pub fn get_disabled_opcode() -> Span<Opcode> {

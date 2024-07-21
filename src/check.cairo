@@ -253,7 +253,7 @@ impl ScriptProcessorImpl of ScriptProcessorTrait {
 				while scriptIndex != 0 {
 					let mut scriptElement = self.scriptElementArray.at(scriptIndex - 1);
 					
-					match *scriptElement {
+					match scriptElement {
 						ScriptElement::Opcode(y) => {
 							let a: u8 = (*x).into();
 							let b: u8 = (y).into();
