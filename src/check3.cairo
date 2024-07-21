@@ -3,7 +3,7 @@ use core::option::OptionTrait;
 use core::byte_array::ByteArrayTrait;
 use core::array::ArrayTrait;
 use core::traits::TryInto;
-use btcscript::preprocess::{Opcode, ScriptElement, get_disabled_opcode};
+use btcscript::preprocess::{Opcode, ScriptElement,RuntimeError, ScriptError,ScriptValidityError, ProgramOutput, get_disabled_opcode};
 use core::byte_array;
 
 
@@ -64,7 +64,6 @@ struct ScriptPreProcessor {
     pub(crate) temp_state: u32,
     pub(crate) pushdata_size: Array<u8>,
     pub(crate) read_data: bool,
-    pub(crate) script_elements: Array<ScriptElement>,
     pub(crate) successfuly_processed: bool,
 }
 
@@ -73,15 +72,15 @@ trait ScriptPreProcessorTrait {
 
     fn process(ref self: ScriptPreProcessor) -> Option<Array<ScriptElement>>;
 
-    fn handle_opcode(ref self: ScriptPreProcessor, opcode: u8);
+    fn handle_opcode(ref self: ScriptPreProcessor, opcode: u8) -> ScriptElement;
 
     fn handle_value_size(ref self: ScriptPreProcessor, opcode: u8);
 
     fn process_pushdata_size(ref self: ScriptPreProcessor) -> u32;
 
-    fn handle_value(ref self: ScriptPreProcessor);
+    fn handle_value(ref self: ScriptPreProcessor) -> Option<ScriptElement>;
 
-    fn display(ref self: ScriptPreProcessor);
+    // fn display(ref self: ScriptPreProcessor);
 }
 
 impl ScriptPreProcessorImpl of ScriptPreProcessorTrait{
@@ -98,12 +97,13 @@ impl ScriptPreProcessorImpl of ScriptPreProcessorTrait{
             temp_state: 0,
             pushdata_size: ArrayTrait::new(),
             read_data: false,
-            script_elements: ArrayTrait::new(),
             successfuly_processed: false,
         }
     }
 
     fn process(ref self: ScriptPreProcessor) -> Option<Array<ScriptElement>> {
+        let mut script_elements: Array<ScriptElement> = ArrayTrait::new();
+
         if self.data.len() == 0 {
             return Option::None;
         }
@@ -112,25 +112,28 @@ impl ScriptPreProcessorImpl of ScriptPreProcessorTrait{
             let opcode = self.data[self.index];
 
             if (opcode > 0 && opcode < 187) && self.state == 0 {
-                self.handle_opcode(opcode);
+                script_elements.append(self.handle_opcode(opcode));
             } else if self.state > 75 && !self.read_data {
                 self.handle_value_size(opcode);
             } else if self.state > 0 {
-                self.handle_value();
+                if let Option::Some(x) = self.handle_value(){
+                    script_elements.append(x);
+                }
             }
-        self.index += 1;
+            self.index += 1;
     };
 
-        Option::Some(self.script_elements.clone())
+        Option::Some(script_elements)
     }
 
-    fn handle_opcode(ref self: ScriptPreProcessor, opcode: u8) {
+    fn handle_opcode(ref self: ScriptPreProcessor, opcode: u8) -> ScriptElement{
         let element_opcode: Opcode = opcode.try_into().unwrap();
 
-        self.script_elements.append(ScriptElement::Opcode(element_opcode));
         if opcode > 0 && opcode <= 80 {
             self.state = opcode.into();
         }
+        
+        ScriptElement::Opcode(element_opcode)
     }
 
     fn handle_value_size(ref self: ScriptPreProcessor, opcode: u8) {
@@ -151,43 +154,48 @@ impl ScriptPreProcessorImpl of ScriptPreProcessorTrait{
         result
     }
 
-    fn handle_value(ref self: ScriptPreProcessor) {
+    fn handle_value(ref self: ScriptPreProcessor) -> Option<ScriptElement> {
+        let mut rvalue: ByteArray = "";
+
         if self.state == 75 && !self.pushdata_size.is_empty() {
             self.temp_state = self.process_pushdata_size();
             self.state = self.temp_state;
         }
         self.temp_value.append_byte(self.data[self.index]);
         if self.state == 1 {
-            self.script_elements.append(ScriptElement::Value(self.temp_value.clone()));
+            rvalue = self.temp_value.clone();
             self.temp_value = "";
             self.read_data = false;
+            self.state -= 1;
+            return Option::Some(ScriptElement::Value(rvalue));
         }
         self.state -= 1;
+        Option::None
     }
 
 
 
-    fn display(ref self: ScriptPreProcessor) {
+    // fn display(ref self: ScriptPreProcessor) {
 
-    while self.script_elements.len() != 0 {
-        if let Option::Some(x) =  self.script_elements.pop_front() {
-                match x {
-                    ScriptElement::Opcode(x) => {
-                        let mut number: u8 = x.into();
-                        println!("{}", number);
-                    },
-                    ScriptElement::Value(x) => {
-                        let mut iterator = 0;
-                        while iterator != x.len() {
-                            print!("{} ", x.at(iterator).unwrap());
-                            iterator += 1;
-                        };
-                        println!("");
-                    }
-                }
-            }
-        };
-    }
+    // while self.script_elements.len() != 0 {
+    //     if let Option::Some(x) =  self.script_elements.pop_front() {
+    //             match x {
+    //                 ScriptElement::Opcode(x) => {
+    //                     let mut number: u8 = x.into();
+    //                     println!("{}", number);
+    //                 },
+    //                 ScriptElement::Value(x) => {
+    //                     let mut iterator = 0;
+    //                     while iterator != x.len() {
+    //                         print!("{} ", x.at(iterator).unwrap());
+    //                         iterator += 1;
+    //                     };
+    //                     println!("");
+    //                 }
+    //             }
+    //         }
+    //     };
+    // }
 }
 
 #[derive(Drop, Clone)]
@@ -198,27 +206,49 @@ struct ScriptProcessor {
 }
 
 trait ScriptProcessorTrait {
-    fn new(data: Array<ScriptElement>) -> ScriptProcessor;
+    fn new(data: ByteArray) -> ScriptProcessor;
+
+    fn new_with_opcodes(data: ByteArray, ref opcodes: Array<Opcode>) -> ScriptProcessor;
 
     fn set_allowed_opcode(ref self: ScriptProcessor,ref opcodes: Array<Opcode>);
 
 	fn set_disabled_opcode(ref self: ScriptProcessor,ref opcodes: Array<Opcode>);
 
-    // fn check(ref self: ScriptProcessor) -> bool;
+    fn check(ref self: ScriptProcessor) -> Result<bool, ScriptValidityError>;
 
     fn get_script_element_array(ref self: ScriptProcessor) -> Array<ScriptElement>;
+
+    fn load_script(ref self: ScriptProcessor, data: ByteArray);
+
+    fn run(ref self: ScriptProcessor) -> Result<ProgramOutput, RuntimeError>;
 }
 
 impl ScriptProcessorImpl of ScriptProcessorTrait {
 
-    fn new(data: Array<ScriptElement>) -> ScriptProcessor {
-        ScriptProcessor {
-            scriptElementArray: data,
+    fn new(data: ByteArray) -> ScriptProcessor {
+        let mut preprocessor: ScriptPreProcessor = ScriptPreProcessorTrait::new(data);
+
+        let mut rvalue = ScriptProcessor {
+            scriptElementArray: preprocessor.process().unwrap(),
             disabledOpcodes: get_disabled_opcode(),
 			valid: false,
-        }
+        };
+        rvalue.check();
+        rvalue
     }
 
+    fn new_with_opcodes(data: ByteArray,ref opcodes: Array<Opcode>) -> ScriptProcessor {
+        let mut preprocessor: ScriptPreProcessor = ScriptPreProcessorTrait::new(data);
+
+        let mut rvalue = ScriptProcessor {
+            scriptElementArray: preprocessor.process().unwrap(),
+            disabledOpcodes: get_disabled_opcode(),
+			valid: false,
+        };
+        rvalue.set_allowed_opcode(ref opcodes);
+        rvalue.check();
+        rvalue
+    }
 
     fn set_allowed_opcode(ref self: ScriptProcessor,ref opcodes: Array<Opcode>){
 		let mut newDisabledOpcodes: Array<Opcode> = ArrayTrait::new();
@@ -243,39 +273,47 @@ impl ScriptProcessorImpl of ScriptProcessorTrait {
 		
 	}
 
-    // fn check(ref self: ScriptProcessor) -> bool {
-	// 	let mut script_len: u32 = self.scriptElementArray.len();
-	// 	let mut validScript: bool = true;
+    fn check(ref self: ScriptProcessor) -> Result<bool, ScriptValidityError> {
+		let mut script_len: u32 = self.scriptElementArray.len();
+		let mut validScript: bool = true;
 
-	// 	while self.disabledOpcodes.len() != 0 {
-	// 		let mut scriptIndex: u32 = script_len;
-	// 		if let Option::Some(x) = self.disabledOpcodes.pop_front() {
-	// 			while scriptIndex != 0 {
-	// 				let mut scriptElement = self.scriptElementArray.at(scriptIndex - 1);
-					
-	// 				match scriptElement {
-	// 					ScriptElement::Opcode(y) => {
-	// 						let a: u8 = (*x).into();
-	// 						let b: u8 = (y).into();
-	// 						if a == b {
-	// 							validScript = false;
-	// 							break;
-	// 						}
-	// 					},
-	// 					ScriptElement::Value(_) => {},
-	// 				}
-	// 				scriptIndex -= 1;
-	// 			};
-	// 			if !validScript {
-	// 				break;
-	// 			}
-	// 		}
-	// 	};
-    //     validScript
-    // }
+        let mut scriptElement = self.scriptElementArray.span();
+
+		while self.disabledOpcodes.len() != 0 {
+			let mut scriptIndex: u32 = script_len;
+			if let Option::Some(x) = self.disabledOpcodes.pop_front() {
+				while scriptIndex != 0 {
+					if let ScriptElement::Opcode(y) = scriptElement.get(scriptIndex - 1).unwrap().unbox().clone() {
+							let a: u8 = (*x).into();
+							let b: u8 = y.into();
+
+							if a == b {
+								validScript = false;
+								break;
+							}
+					}
+					scriptIndex -= 1;
+				};
+				if !validScript {
+					break;
+				}
+			}
+		};
+        if !validScript {}
+        Result::Ok(validScript)
+    }
 
     fn get_script_element_array(ref self: ScriptProcessor) -> Array<ScriptElement> {
         self.scriptElementArray.clone()
+    }
+
+    fn load_script(ref self: ScriptProcessor, data: ByteArray){
+        let mut preprocessor: ScriptPreProcessor = ScriptPreProcessorTrait::new(data);
+        self.scriptElementArray = preprocessor.process().unwrap();
+    }
+
+    fn run(ref self: ScriptProcessor) -> Result<ProgramOutput, RuntimeError> {
+        Result::Ok(ProgramOutput::StackReturn(1))
     }
 }
 
@@ -284,16 +322,24 @@ fn test() {
     let data: ByteArray = "a91481279aabd6ee711aee502ed4dcd00be1c6ff8edf87";
     //let data: ByteArray = "4d0001aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     //let data: ByteArray = "48304502202e591bff9983f4c102406764e6d5a02d3f0d386016c1431a46d08a3f53facc84022100ee1a178685fbb5839188cc8d32e8c09092a51539bce6e1133be63059babdf8ac01410475bcdc7a50286e1359b73bac3406956476b3d4f0c1788a6b8962d7bb012bcc7477422c828425a07db480d3c249c784a933325af9201497e8c761036351d06155";
-    //let ALLOWED_OPCODE: Array<u8> = array![126, 129];
-    let mut processor: ScriptPreProcessor = ScriptPreProcessorTrait::new(data);
-    let mut _ScriptElementArray: Array<ScriptElement> = processor.process().unwrap();
-    processor.display();
+    let mut processor: ScriptProcessor = ScriptProcessorTrait::new(data);
+    processor.set_allowed_opcode(array![Opcode::OP_CAT]);
+    let mut _result = processor.run();
+
+
+
+
+
+
+
+
+
 }
 
 
 // main() {
 //
-// 	let script: ScriptProcessor = ScriptProccesor::load_script();
+// 	let script: ScriptProcessor = ScriptProccesor::load_script("monscript", array![Opcode::OP_CAT]);
 // 	script.set_allowed_opcodes(array![Opcode::OP_CAT, Opcode::OP_LSHIFT]);
 // 	script.run();
 // }
@@ -307,3 +353,20 @@ mod tests {
         assert(16 == 16, 'it works!');
     }
 }
+
+
+// main() {
+// // fully automated with new
+// // fully automated with new_with_opcode
+
+// // manually load_script, allow op_code, disable op_code and check with default
+//     let BtcScript = "MONSCRIPT";
+//     let btc2;
+//     btc2.allow_opcode()
+//     btc2.disable_opcode()
+//     btc2.add_script("MONSCRIPT");
+
+//     match btc2::new()
+
+
+// }

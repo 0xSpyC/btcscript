@@ -1,5 +1,7 @@
 use core::option;
 use core::byte_array::ByteArrayTrait;
+use core::bytes_31;
+use core::array;
 
 
 #[derive(Drop, Copy)]
@@ -192,10 +194,6 @@ pub enum Opcode {
     OP_NOP9,
     OP_NOP10,
     OP_CHECKSIGADD,
-}
-
-trait OpcodeTrait {
-    fn value(ref self: Opcode) -> u8;
 }
 
 impl OpcodeIntoU8 of Into<Opcode, u8> {
@@ -782,11 +780,63 @@ impl U32IntoOpcode of TryInto<u32, Opcode> {
         }
     }
 }
-#[derive(Drop, Clone, Copy)]
+#[derive(Drop, Clone)]
 pub enum ScriptElement {
     Opcode : Opcode,
     Value : ByteArray,
 }
+
+#[derive(Drop)]
+pub enum ScriptValidityError {
+    WrongOpcode,
+}
+
+#[derive(Drop)]
+pub enum RuntimeError {
+    StackOperationError,
+}
+
+#[derive(Drop)]
+pub enum ScriptError {
+    ScriptValidityError: ScriptValidityError,
+    RuntimeError: RuntimeError,
+}
+
+#[derive(Drop, Copy)]
+pub enum ProgramOutput {
+    StackReturn: i64,
+}
+
+// trait Copy<T> {
+//     fn copy(self: T) -> T;
+// }
+
+// impl ArrayCopy of Copy<Array<bytes31>> {
+//     fn copy(self: Array<bytes31>) -> Array<bytes31> {
+//         self.clone()
+//     }
+// }
+
+// impl ByteArrayCopy of Copy<ByteArray> {
+//     fn copy(self: ByteArray) -> ByteArray {
+//         self.clone()
+//     }
+// }
+
+// impl ScriptElementCopy of Copy<ScriptElement> {
+//     fn copy(self: ScriptElement) -> ScriptElement {
+//         self.clone()
+//     }
+// }
+
+// impl ScriptElementArrayCopy of Copy<Array<ScriptElement>> {
+//     fn copy(self: Array<ScriptElement>) -> Array<ScriptElement> {
+//         self.clone()
+//     }
+// }
+
+
+
 
 pub fn get_disabled_opcode() -> Span<Opcode> {
     let DISABLED_OPCODE: Array<Opcode> = array![
