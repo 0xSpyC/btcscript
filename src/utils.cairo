@@ -10,7 +10,7 @@ fn hex_to_dec(value: u8) -> Option<u8> {
     }
 }
 
-fn raw_data_to_byte_array(data: ByteArray) -> Option<ByteArray> {
+pub fn raw_data_to_byte_array(data: ByteArray) -> Option<ByteArray> {
     let mut rvalue: ByteArray = "";
     let mut i: u32 = 0;
     let mut invalid_character: bool = false;

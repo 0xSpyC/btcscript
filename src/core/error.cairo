@@ -1,8 +1,11 @@
 #[derive(Drop)]
-pub enum ValidatingError {
-    DisabledOpcode,
+pub enum ScriptError {
+	ParsingError: ParsingError,
+    ValidatingError: ValidatingError,
+    RuntimeError: RuntimeError,
 }
 
+#[derive(Drop)]
 pub enum ParsingError {
     InvalidScript,
     InvalidOpcode,
@@ -10,12 +13,11 @@ pub enum ParsingError {
 }
 
 #[derive(Drop)]
-pub enum RuntimeError {
-    StackOperationError,
+pub enum ValidatingError {
+    DisabledOpcode,
 }
 
 #[derive(Drop)]
-pub enum ScriptError {
-    ScriptValidityError: ScriptValidityError,
-    RuntimeError: RuntimeError,
+pub enum RuntimeError {
+    StackOperationError,
 }

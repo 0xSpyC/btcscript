@@ -1,5 +1,10 @@
+use btcscript::core::error::{ScriptError, ParsingError};
+use btcscript::core::script::{ScriptElement};
+use btcscript::core::opcode::opcode::{Opcode};
+use btcscript::utils::{raw_data_to_byte_array};
+
 #[derive(Drop)]
-struct BtcScriptParser {
+pub struct BtcScriptParser {
     pub(crate) data: ByteArray,
     pub(crate) index: usize,
     pub(crate) state: u32,
@@ -9,10 +14,10 @@ struct BtcScriptParser {
     pub(crate) read_data: bool,
 }
 
-trait BtcScriptParserTrait {
+pub trait BtcScriptParserTrait {
     fn new(data: ByteArray) -> BtcScriptParser;
 
-    fn process(ref self: BtcScriptParser) -> Result<Array<ScriptElement>, ScriptValidityError>;
+    fn process(ref self: BtcScriptParser) -> Result<Array<ScriptElement>, ScriptError>;
 
     fn handle_opcode(ref self: BtcScriptParser, opcode: u8) -> ScriptElement;
 
@@ -23,10 +28,10 @@ trait BtcScriptParserTrait {
     fn handle_value(ref self: BtcScriptParser) -> Option<ScriptElement>;
 }
 
-impl BtcScriptParserImpl of BtcScriptParserTrait {
+pub impl BtcScriptParserImpl of BtcScriptParserTrait {
     fn new(data: ByteArray) -> BtcScriptParser {
         let mut data_preprocess: ByteArray = "";
-        if let Option::Some(x) = string_to_byte_array(data) {
+        if let Option::Some(x) = raw_data_to_byte_array(data) {
             data_preprocess = x;
         }
         BtcScriptParser {
@@ -40,12 +45,12 @@ impl BtcScriptParserImpl of BtcScriptParserTrait {
         }
     }
 
-    fn process(ref self: BtcScriptParser) -> Result<Array<ScriptElement>, ScriptValidityError> {
+    fn process(ref self: BtcScriptParser) -> Result<Array<ScriptElement>, ScriptError> {
         let mut script_elements: Array<ScriptElement> = ArrayTrait::new();
         let mut validOpcode: bool = true;
 
         if self.data.len() == 0 {
-            return Result::Err(ScriptValidityError::EmptyScript);
+            return Result::Err(ScriptError::ParsingError(ParsingError::EmptyScript));
         }
 
         while self
@@ -69,10 +74,10 @@ impl BtcScriptParserImpl of BtcScriptParserTrait {
                 self.index += 1;
             };
         if self.state > 0 {
-            return Result::Err(ScriptValidityError::InvalidScript);
+            return Result::Err(ScriptError::ParsingError(ParsingError::InvalidScript));
         }
         if !validOpcode {
-            return Result::Err(ScriptValidityError::InvalidOpcode);
+            return Result::Err(ScriptError::ParsingError(ParsingError::InvalidOpcode));
         }
         Result::Ok(script_elements)
     }
