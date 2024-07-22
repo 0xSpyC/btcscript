@@ -788,7 +788,10 @@ pub enum ScriptElement {
 
 #[derive(Drop)]
 pub enum ScriptValidityError {
-    WrongOpcode,
+    InvalidScript,
+	InvalidOpcode,
+	DisabledOpcode,
+	EmptyScript,
 }
 
 #[derive(Drop)]
