@@ -17,13 +17,13 @@ pub struct BtcScriptParser {
 pub trait BtcScriptParserTrait {
     fn new(data: ByteArray) -> BtcScriptParser;
 
-    fn process(ref self: BtcScriptParser) -> Result<Array<ScriptElement>, ScriptError>;
+    fn parse(ref self: BtcScriptParser) -> Result<Array<ScriptElement>, ScriptError>;
 
     fn handle_opcode(ref self: BtcScriptParser, opcode: u8) -> ScriptElement;
 
     fn handle_value_size(ref self: BtcScriptParser, opcode: u8);
 
-    fn process_pushdata_size(ref self: BtcScriptParser) -> u32;
+    fn handle_pushdata_size(ref self: BtcScriptParser) -> u32;
 
     fn handle_value(ref self: BtcScriptParser) -> Option<ScriptElement>;
 }
@@ -45,7 +45,7 @@ pub impl BtcScriptParserImpl of BtcScriptParserTrait {
         }
     }
 
-    fn process(ref self: BtcScriptParser) -> Result<Array<ScriptElement>, ScriptError> {
+    fn parse(ref self: BtcScriptParser) -> Result<Array<ScriptElement>, ScriptError> {
         let mut script_elements: Array<ScriptElement> = ArrayTrait::new();
         let mut validOpcode: bool = true;
 
@@ -100,7 +100,7 @@ pub impl BtcScriptParserImpl of BtcScriptParserTrait {
         }
     }
 
-    fn process_pushdata_size(ref self: BtcScriptParser) -> u32 {
+    fn handle_pushdata_size(ref self: BtcScriptParser) -> u32 {
         let mut result = 0;
         let mut multiplier = 1;
         while let Option::Some(x) = self
@@ -116,7 +116,7 @@ pub impl BtcScriptParserImpl of BtcScriptParserTrait {
         let mut rvalue: ByteArray = "";
 
         if self.state == 75 && !self.pushdata_size.is_empty() {
-            self.temp_state = self.process_pushdata_size();
+            self.temp_state = self.handle_pushdata_size();
             self.state = self.temp_state;
         }
         self.temp_value.append_byte(self.data[self.index]);

@@ -1,6 +1,6 @@
 #[derive(Drop)]
 pub enum ScriptError {
-	ParsingError: ParsingError,
+    ParsingError: ParsingError,
     ValidatingError: ValidatingError,
     RuntimeError: RuntimeError,
 }

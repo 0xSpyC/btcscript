@@ -11,7 +11,7 @@ pub enum ScriptElement {
 
 #[derive(Drop, Clone)]
 pub struct BtcScript {
-    pub(crate) scriptElementArray: Array<ScriptElement>,
+    pub(crate) scriptElements: Array<ScriptElement>,
     pub(crate) disabledOpcodes: Span<Opcode>,
     pub(crate) isValid: bool,
 }
@@ -33,32 +33,32 @@ pub trait BtcScriptTrait {
 
     fn get_script_element_array(ref self: BtcScript) -> Array<ScriptElement>;
 
-    fn run(ref self: BtcScript) -> Result<u32 , RuntimeError>;
+    fn run(ref self: BtcScript) -> Result<u32, RuntimeError>;
 }
 
 pub impl BtcScriptImpl of BtcScriptTrait {
     fn new(data: ByteArray) -> Result<BtcScript, ScriptError> {
-        let mut preprocessor: BtcScriptParser = BtcScriptParserTrait::new(data);
-        let mut element = preprocessor.process()?;
+        let mut parser: BtcScriptParser = BtcScriptParserTrait::new(data);
+        let mut elements = parser.parse()?;
         let mut rvalue = BtcScript {
-			scriptElementArray: element, disabledOpcodes: get_disabled_opcode(), isValid: false,
-		};
+            scriptElements: elements, disabledOpcodes: get_disabled_opcode(), isValid: false,
+        };
 
-		rvalue.check()?;
-		Result::Ok(rvalue)
-        }
+        rvalue.check()?;
+        Result::Ok(rvalue)
+    }
 
     fn new_with_opcodes(
         data: ByteArray, ref opcodes: Array<Opcode>
     ) -> Result<BtcScript, ScriptError> {
-        let mut preprocessor: BtcScriptParser = BtcScriptParserTrait::new(data);
-        let mut element = preprocessor.process()?;
+        let mut parser: BtcScriptParser = BtcScriptParserTrait::new(data);
+        let mut elements = parser.parse()?;
         let mut rvalue = BtcScript {
-			scriptElementArray: element, disabledOpcodes: get_disabled_opcode(), isValid: false,
-		};
-		
-		rvalue.check()?;
-		Result::Ok(rvalue)
+            scriptElements: elements, disabledOpcodes: get_disabled_opcode(), isValid: false,
+        };
+
+        rvalue.check()?;
+        Result::Ok(rvalue)
     }
 
     fn set_allowed_opcode(ref self: BtcScript, ref opcodes: Array<Opcode>) {
@@ -88,10 +88,10 @@ pub impl BtcScriptImpl of BtcScriptTrait {
     }
 
     fn check(ref self: BtcScript) -> Result<bool, ScriptError> {
-        let mut script_len: u32 = self.scriptElementArray.len();
+        let mut script_len: u32 = self.scriptElements.len();
         let mut validScript: bool = true;
 
-        let mut scriptElement = self.scriptElementArray.span();
+        let mut scriptElement = self.scriptElements.span();
 
         while self
             .disabledOpcodes
@@ -127,13 +127,13 @@ pub impl BtcScriptImpl of BtcScriptTrait {
     }
 
     fn get_script_element_array(ref self: BtcScript) -> Array<ScriptElement> {
-        self.scriptElementArray.clone()
+        self.scriptElements.clone()
     }
 
     fn load_script(ref self: BtcScript, data: ByteArray) {
         self.isValid = false;
-        let mut preprocessor: BtcScriptParser = BtcScriptParserTrait::new(data);
-        self.scriptElementArray = preprocessor.process().unwrap();
+        let mut parser: BtcScriptParser = BtcScriptParserTrait::new(data);
+        self.scriptElements = parser.parse().unwrap();
     }
 
     fn run(ref self: BtcScript) -> Result<u32, RuntimeError> {
