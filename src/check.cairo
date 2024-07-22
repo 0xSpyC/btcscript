@@ -223,16 +223,6 @@ trait ScriptProcessorTrait {
     fn run(ref self: ScriptProcessor) -> Result<ProgramOutput, RuntimeError>;
 }
 
-impl ScriptProcessorDefault of Default<ScriptProcessor> {
-    fn default() -> ScriptProcessor {
-        ScriptProcessor {
-					scriptElementArray: ArrayTrait::new(),
-					disabledOpcodes: get_disabled_opcode(),
-					isValid: false,
-				}
-    }
-}
-
 impl ScriptProcessorImpl of ScriptProcessorTrait {
 
     fn new(data: ByteArray) -> Result<ScriptProcessor, ScriptValidityError> {
@@ -368,7 +358,7 @@ fn test() {
 
 // main() {
 //
-	let script: ScriptProcessor = ScriptProccesor::default();
+// 	let script: ScriptProcessor = ScriptProccesor::load_script();
 // 	script.set_allowed_opcodes(array![Opcode::OP_CAT, Opcode::OP_LSHIFT]);
 // 	script.run();
 // }
