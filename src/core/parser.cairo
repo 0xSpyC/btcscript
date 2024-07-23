@@ -1,30 +1,25 @@
 use btcscript::core::error::{ScriptError, ParsingError};
-use btcscript::core::script::{ScriptElement};
-use btcscript::core::opcode::opcode::{Opcode};
-use btcscript::utils::{raw_data_to_byte_array};
+use btcscript::core::script::ScriptElement;
+use btcscript::core::opcode::opcode::Opcode;
+use btcscript::utils::raw_data_to_byte_array;
 
 #[derive(Drop)]
 pub struct BtcScriptParser {
-    pub(crate) data: ByteArray,
-    pub(crate) index: usize,
-    pub(crate) state: u32,
-    pub(crate) temp_value: ByteArray,
-    pub(crate) temp_state: u32,
-    pub(crate) pushdata_size: Array<u8>,
-    pub(crate) read_data: bool,
+    data: ByteArray,
+    index: usize,
+    state: u32,
+    temp_value: ByteArray,
+    temp_state: u32,
+    pushdata_size: Array<u8>,
+    read_data: bool,
 }
 
 pub trait BtcScriptParserTrait {
     fn new(data: ByteArray) -> BtcScriptParser;
-
     fn parse(ref self: BtcScriptParser) -> Result<Array<ScriptElement>, ScriptError>;
-
     fn handle_opcode(ref self: BtcScriptParser, opcode: u8) -> ScriptElement;
-
     fn handle_value_size(ref self: BtcScriptParser, opcode: u8);
-
     fn handle_pushdata_size(ref self: BtcScriptParser) -> u32;
-
     fn handle_value(ref self: BtcScriptParser) -> Option<ScriptElement>;
 }
 

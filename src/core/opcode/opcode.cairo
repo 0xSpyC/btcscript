@@ -781,7 +781,7 @@ impl U32IntoOpcode of TryInto<u32, Opcode> {
     }
 }
 
-pub fn get_disabled_opcode() -> Span<Opcode> {
+pub fn get_default_disabled_opcodes() -> Span<Opcode> {
     let DISABLED_OPCODE: Array<Opcode> = array![
         Opcode::OP_CAT,
         Opcode::OP_SUBSTR,
