@@ -42,12 +42,11 @@ pub impl BtcScriptParserImpl of BtcScriptParserTrait {
 
     fn parse(ref self: BtcScriptParser) -> Result<Array<ScriptElement>, ScriptError> {
         let mut script_elements: Array<ScriptElement> = ArrayTrait::new();
-        let mut validOpcode: bool = true;
+        let mut valid_opcode: bool = true;
 
         if self.data.len() == 0 {
             return Result::Err(ScriptError::ParsingError(ParsingError::EmptyScript));
         }
-
         while self
             .index < self
             .data
@@ -63,7 +62,7 @@ pub impl BtcScriptParserImpl of BtcScriptParserTrait {
                         script_elements.append(x);
                     }
                 } else {
-                    validOpcode = false;
+                    valid_opcode = false;
                     break;
                 }
                 self.index += 1;
@@ -71,7 +70,7 @@ pub impl BtcScriptParserImpl of BtcScriptParserTrait {
         if self.state > 0 {
             return Result::Err(ScriptError::ParsingError(ParsingError::InvalidScript));
         }
-        if !validOpcode {
+        if !valid_opcode {
             return Result::Err(ScriptError::ParsingError(ParsingError::InvalidOpcode));
         }
         Result::Ok(script_elements)
@@ -83,7 +82,6 @@ pub impl BtcScriptParserImpl of BtcScriptParserTrait {
         if opcode > 0 && opcode <= 80 {
             self.state = opcode.into();
         }
-
         ScriptElement::Opcode(element_opcode)
     }
 
@@ -98,6 +96,7 @@ pub impl BtcScriptParserImpl of BtcScriptParserTrait {
     fn handle_pushdata_size(ref self: BtcScriptParser) -> u32 {
         let mut result = 0;
         let mut multiplier = 1;
+
         while let Option::Some(x) = self
             .pushdata_size
             .pop_front() {

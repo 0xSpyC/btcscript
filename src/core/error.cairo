@@ -19,6 +19,6 @@ pub enum ValidatingError {
 
 #[derive(Drop)]
 pub enum RuntimeError {
-	ReturnedValueError,
+    ReturnedValueError,
     StackOperationError,
 }
