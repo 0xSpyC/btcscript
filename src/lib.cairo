@@ -5,6 +5,7 @@ mod core {
     mod stack;
     mod opcode {
         pub mod opcode;
+        pub mod op_0;
     }
 }
 

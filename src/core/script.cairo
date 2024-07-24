@@ -1,6 +1,6 @@
 use btcscript::core::error::{ScriptError, ValidatingError, RuntimeError};
 use btcscript::core::parser::{BtcScriptParser, BtcScriptParserTrait};
-use btcscript::core::opcode::opcode::{Opcode, get_default_disabled_opcodes};
+use btcscript::core::opcode::opcode::{Opcode, get_default_disabled_opcodes, execute_opcode};
 use btcscript::core::stack::{ExecStack, ExecStackTrait};
 use btcscript::utils::{raw_data_to_byte_array};
 
@@ -25,7 +25,7 @@ pub trait BtcScriptTrait {
     fn allow_opcodes(ref self: BtcScript, ref opcodes: Array<Opcode>);
     fn disable_opcodes(ref self: BtcScript, ref opcodes: Array<Opcode>);
     fn load_script(ref self: BtcScript, data: ByteArray);
-    fn check(ref self: BtcScript) -> Result<bool, ScriptError>;
+    fn check(ref self: BtcScript) -> Result<(), ScriptError>;
     fn get_script_elements(ref self: BtcScript) -> Array<ScriptElement>;
     fn run(ref self: BtcScript) -> Result<u128, ScriptError>;
 }
@@ -76,10 +76,10 @@ pub impl BtcScriptImpl of BtcScriptTrait {
         self.is_runnable = false;
     }
 
-    fn check(ref self: BtcScript) -> Result<bool, ScriptError> {
+    fn check(ref self: BtcScript) -> Result<(), ScriptError> {
         let mut script_len: u32 = self.script_elements.len();
-        let mut validScript: bool = true;
-        let mut scriptElement = self.script_elements.span();
+        let mut valid_script: bool = true;
+        let mut script_element = self.script_elements.span();
 
         while self
             .disabled_opcodes
@@ -87,7 +87,7 @@ pub impl BtcScriptImpl of BtcScriptTrait {
                 let mut scriptIndex: u32 = script_len;
                 if let Option::Some(x) = self.disabled_opcodes.pop_front() {
                     while scriptIndex != 0 {
-                        if let ScriptElement::Opcode(y) = scriptElement
+                        if let ScriptElement::Opcode(y) = script_element
                             .get(scriptIndex - 1)
                             .unwrap()
                             .unbox()
@@ -95,22 +95,22 @@ pub impl BtcScriptImpl of BtcScriptTrait {
                             let a: u8 = (*x).into();
                             let b: u8 = y.into();
                             if a == b {
-                                validScript = false;
+                                valid_script = false;
                                 break;
                             }
                         }
                         scriptIndex -= 1;
                     };
-                    if !validScript {
+                    if !valid_script {
                         break;
                     }
                 }
             };
-        if !validScript {
+        if !valid_script {
             return (Result::Err(ScriptError::ValidatingError(ValidatingError::DisabledOpcode)));
         }
         self.is_runnable = true;
-        Result::Ok(validScript)
+        Result::Ok(())
     }
 
     fn get_script_elements(ref self: BtcScript) -> Array<ScriptElement> {
@@ -125,14 +125,21 @@ pub impl BtcScriptImpl of BtcScriptTrait {
 
     fn run(ref self: BtcScript) -> Result<u128, ScriptError> {
         let mut stack: ExecStack = Default::default();
+        let mut script: Array<ScriptElement> = self.script_elements.clone();
 
-		execute()
-
+        while (script.len() != 0) {
+            if let Option::Some(x) = script.pop_front() {
+                if let ScriptElement::Opcode(o) = x {
+                    match execute_opcode(o, ref stack, ref script) {
+                        Result::Ok(_) => {},
+                        Result::Err(_) => { break; },
+                    };
+                }
+            }
+        };
         if stack.len() != 1 {
             return Result::Err(ScriptError::RuntimeError(RuntimeError::ReturnedValueError));
         }
-
-        // let rvalue: u128 = stack.pop().unwrap().try_into().unwrap();
         return Result::Ok(1);
     }
 }

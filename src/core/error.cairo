@@ -21,4 +21,5 @@ pub enum ValidatingError {
 pub enum RuntimeError {
     ReturnedValueError,
     StackOperationError,
+    NotImplemented,
 }
