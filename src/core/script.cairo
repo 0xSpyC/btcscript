@@ -1,4 +1,5 @@
-use btcscript::core::error::{ScriptError, ValidatingError, RuntimeError};
+use core::result::ResultTrait;
+use btcscript::core::error::{ScriptError, ValidatingError, RuntimeError, ParsingError};
 use btcscript::core::parser::{BtcScriptParser, BtcScriptParserTrait};
 use btcscript::core::opcode::opcode::{Opcode, get_default_disabled_opcodes, execute_opcode};
 use btcscript::core::stack::{ExecStack, ExecStackTrait};
@@ -35,7 +36,7 @@ pub impl BtcScriptImpl of BtcScriptTrait {
         let mut script: BtcScript = Default::default();
 
         script.load_script(data);
-        script.check()?;
+        //script.check()?;
         Result::Ok(script)
     }
 
@@ -120,17 +121,39 @@ pub impl BtcScriptImpl of BtcScriptTrait {
     fn load_script(ref self: BtcScript, data: ByteArray) {
         self.is_runnable = false;
         let mut parser: BtcScriptParser = BtcScriptParserTrait::new(data);
-        self.script_elements = parser.parse().unwrap();
+        let mut error = parser.parse();
+        match error {
+            Result::Ok(mut x) => {
+                self.script_elements = x;
+            },
+            Result::Err(eror) => {
+                if let ScriptError::ParsingError(x) = eror {
+                    match x {
+                        ParsingError::InvalidScript => {
+                            panic!("InvalidScript");
+                        },
+                        ParsingError::InvalidOpcode => {
+                            panic!("InvalidOpcode");
+                        },
+                        ParsingError::EmptyScript => {
+
+                            panic!("EmptyScript");
+
+                        },
+                    }
+                }
+
+            }
+        }
     }
 
     fn run(ref self: BtcScript) -> Result<u128, ScriptError> {
         let mut stack: ExecStack = Default::default();
-        let mut script: Array<ScriptElement> = self.script_elements.clone();
 
-        while (script.len() != 0) {
-            if let Option::Some(x) = script.pop_front() {
+        while (self.script_elements.len() != 0) {
+            if let Option::Some(x) = self.script_elements.pop_front() {
                 if let ScriptElement::Opcode(o) = x {
-                    match execute_opcode(o, ref stack, ref script) {
+                    match execute_opcode(o, ref stack, ref self.script_elements) {
                         Result::Ok(_) => {},
                         Result::Err(_) => { break; },
                     };
@@ -153,4 +176,21 @@ impl BtcScriptDefault of Default<BtcScript> {
         };
         btcscript
     }
+}
+
+fn main() {
+    let mut btcscript = BtcScriptTrait::new("000000000000");
+    // match btcscript {
+    //     Result::Ok(mut x) => {
+    //         //let mut _error = x.run();
+    //     },
+    //     Result::Err(_error) => {
+    //         panic!("Error");
+    //     }
+    // }
+}
+
+#[test]
+fn test(){
+    main();
 }

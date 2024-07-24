@@ -53,7 +53,7 @@ pub impl BtcScriptParserImpl of BtcScriptParserTrait {
             .len() {
                 let mut opcode = self.data[self.index];
 
-                if (opcode > 0 && opcode < 187) && self.state == 0 {
+                if (opcode >= 0 && opcode < 187) && self.state == 0 {
                     script_elements.append(self.handle_opcode(opcode));
                 } else if self.state > 75 && !self.read_data {
                     self.handle_value_size(opcode);
