@@ -2,11 +2,13 @@ use core::option;
 use core::byte_array::ByteArrayTrait;
 use core::bytes_31;
 use core::array;
-use btcscript::core::error::{ScriptError, RuntimeError};
-use btcscript::core::stack::ExecStack;
-use btcscript::core::script::ScriptElement;
+use shinigami::core::error::{ScriptError, RuntimeError};
+use shinigami::core::stack::ExecStack;
+use shinigami::core::script::ScriptElement;
 
-use btcscript::core::opcode::op_0::op_0;
+use shinigami::core::opcode::op_0::op_0;
+use shinigami::core::opcode::op_1::op_1;
+use shinigami::core::opcode::op_add::op_add;
 
 #[derive(Drop, Copy)]
 pub enum Opcode {
@@ -701,7 +703,7 @@ pub fn execute_opcode(
         Opcode::OP_PUSHDATA4 => not_implemented(),
         Opcode::OP_1NEGATE => not_implemented(),
         Opcode::OP_RESERVED => not_implemented(),
-        Opcode::OP_1 => not_implemented(),
+        Opcode::OP_1 => op_1(ref stack),
         Opcode::OP_2 => not_implemented(),
         Opcode::OP_3 => not_implemented(),
         Opcode::OP_4 => not_implemented(),
@@ -767,7 +769,7 @@ pub fn execute_opcode(
         Opcode::OP_ABS => not_implemented(),
         Opcode::OP_NOT => not_implemented(),
         Opcode::OP_0NOTEQUAL => not_implemented(),
-        Opcode::OP_ADD => not_implemented(),
+        Opcode::OP_ADD => op_add(),
         Opcode::OP_SUB => not_implemented(),
         Opcode::OP_MUL => not_implemented(),
         Opcode::OP_DIV => not_implemented(),

@@ -25,6 +25,16 @@ pub impl ExecStackImpl of ExecStackTrait {
         Option::Some(arr.deref())
     }
 
+	fn pop_int(ref self: ExecStack) -> Option<i64> {
+		let bytes = match self.pop() {
+			Option::Some(x) => x,
+			Option::None() => return Option::None(),
+		}
+		if bytes.len() > 4 {
+			return Option::None();
+		}
+	}
+
     fn is_empty(self: @ExecStack) -> bool {
         *self.len == 0
     }

@@ -1,7 +1,7 @@
-use btcscript::core::error::{ScriptError, ParsingError};
-use btcscript::core::script::ScriptElement;
-use btcscript::core::opcode::opcode::Opcode;
-use btcscript::utils::raw_data_to_byte_array;
+use shinigami::core::error::{ScriptError, ParsingError};
+use shinigami::core::script::ScriptElement;
+use shinigami::core::opcode::opcode::Opcode;
+use shinigami::utils::raw_data_to_byte_array;
 
 #[derive(Drop)]
 pub struct BtcScriptParser {

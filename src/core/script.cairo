@@ -1,9 +1,9 @@
 use core::result::ResultTrait;
-use btcscript::core::error::{ScriptError, ValidatingError, RuntimeError, ParsingError};
-use btcscript::core::parser::{BtcScriptParser, BtcScriptParserTrait};
-use btcscript::core::opcode::opcode::{Opcode, get_default_disabled_opcodes, execute_opcode};
-use btcscript::core::stack::{ExecStack, ExecStackTrait};
-use btcscript::utils::{raw_data_to_byte_array};
+use shinigami::core::error::{ScriptError, ValidatingError, RuntimeError, ParsingError};
+use shinigami::core::parser::{BtcScriptParser, BtcScriptParserTrait};
+use shinigami::core::opcode::opcode::{Opcode, get_default_disabled_opcodes, execute_opcode};
+use shinigami::core::stack::{ExecStack, ExecStackTrait};
+use shinigami::utils::{raw_data_to_byte_array};
 
 #[derive(Drop, Clone)]
 pub enum ScriptElement {
@@ -123,26 +123,15 @@ pub impl BtcScriptImpl of BtcScriptTrait {
         let mut parser: BtcScriptParser = BtcScriptParserTrait::new(data);
         let mut error = parser.parse();
         match error {
-            Result::Ok(mut x) => {
-                self.script_elements = x;
-            },
+            Result::Ok(mut x) => { self.script_elements = x; },
             Result::Err(eror) => {
                 if let ScriptError::ParsingError(x) = eror {
                     match x {
-                        ParsingError::InvalidScript => {
-                            panic!("InvalidScript");
-                        },
-                        ParsingError::InvalidOpcode => {
-                            panic!("InvalidOpcode");
-                        },
-                        ParsingError::EmptyScript => {
-
-                            panic!("EmptyScript");
-
-                        },
+                        ParsingError::InvalidScript => { panic!("InvalidScript"); },
+                        ParsingError::InvalidOpcode => { panic!("InvalidOpcode"); },
+                        ParsingError::EmptyScript => { panic!("EmptyScript"); },
                     }
                 }
-
             }
         }
     }
@@ -180,17 +169,17 @@ impl BtcScriptDefault of Default<BtcScript> {
 
 fn main() {
     let mut btcscript = BtcScriptTrait::new("000000000000");
-    // match btcscript {
-    //     Result::Ok(mut x) => {
-    //         //let mut _error = x.run();
-    //     },
-    //     Result::Err(_error) => {
-    //         panic!("Error");
-    //     }
-    // }
+// match btcscript {
+//     Result::Ok(mut x) => {
+//         //let mut _error = x.run();
+//     },
+//     Result::Err(_error) => {
+//         panic!("Error");
+//     }
+// }
 }
 
 #[test]
-fn test(){
+fn test() {
     main();
 }
